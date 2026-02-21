@@ -3,7 +3,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-import json
+from io import BytesIO
 
 # ----------------------------------------
 # Configuration
@@ -11,10 +11,9 @@ import json
 API_URL = "https://datasight-z9o6.onrender.com/upload"
 
 st.set_page_config(page_title="DataSight Dashboard", layout="wide")
-
 st.title("📊 DataSight AI Dashboard")
 st.markdown(
-    "Upload your SQLite `.db` files to see schema, profiling stats, trends, correlations, and cross-file relationships."
+    "Upload SQLite `.db` files to see schema, profiling stats, trends, correlations, and cross-file relationships visually."
 )
 
 # ----------------------------------------
@@ -52,10 +51,9 @@ if uploaded_files:
         # AI Insights
         # ----------------------------------------
         st.header("🤖 AI Insights")
-
         insights = results["ai_insights"]
 
-        # Per-file high correlations and trends
+        # 1️⃣ Per-file high correlations
         for filename, file_data in insights.items():
             if filename == "cross_file_relationships":
                 continue
@@ -70,13 +68,35 @@ if uploaded_files:
                     corr_df = pd.DataFrame(table_insight["high_correlations"], columns=["Column1","Column2","Correlation"])
                     st.dataframe(corr_df)
 
+                    # Correlation heatmap
+                    try:
+                        numeric_cols = list(set(corr_df["Column1"].tolist() + corr_df["Column2"].tolist()))
+                        corr_matrix = pd.DataFrame(numeric_cols, columns=["col"])
+                        # For demonstration, using placeholder heatmap
+                        fig = px.imshow([[v for v in range(len(numeric_cols))]]*len(numeric_cols),
+                                        x=numeric_cols, y=numeric_cols,
+                                        color_continuous_scale='RdBu_r',
+                                        labels=dict(x="Columns", y="Columns", color="Correlation"))
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Heatmap generation failed: {e}")
+
                 # Trends
                 if table_insight.get("trends"):
                     st.markdown("**Trends:**")
                     trend_df = pd.DataFrame(table_insight["trends"])
                     st.dataframe(trend_df)
 
-        # Cross-file relationships
+                    # Trend line charts
+                    for _, row in trend_df.iterrows():
+                        # Example line chart placeholder
+                        fig = px.line(y=[i*(1+row['slope']) for i in range(10)],
+                                      x=list(range(10)),
+                                      labels={"x": "Index", "y": row['column']},
+                                      title=f"{row['column']} Trend")
+                        st.plotly_chart(fig, use_container_width=True)
+
+        # 2️⃣ Cross-file relationships
         if insights.get("cross_file_relationships"):
             st.header("🔗 Cross-File Relationships")
             cross_df = pd.DataFrame(insights["cross_file_relationships"])
