@@ -4,7 +4,7 @@ from config.settings import settings
 
 app = FastAPI(title=settings.APP_NAME)
 
-app.include_router(upload_router, prefix="/api")
+app.include_router(upload_router)
 
 @app.get("/")
 def health_check():
