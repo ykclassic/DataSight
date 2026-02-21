@@ -1,81 +1,52 @@
 # app/api/upload.py
-
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
 from typing import List
-import sqlite3
-import pandas as pd
-from io import BytesIO
+import asyncio
 
-# Services
-from app.services.schema_service import analyze_schema
-from app.services.profile_service import profile_tables
-from app.services.insight_service import generate_insights
+from app.services.profile_service import load_sqlite_db, profile_tables
+from app.engines.insight_engine import analyze_insights  # AI engine from previous phase
 
 router = APIRouter()
 
-async def load_sqlite_db(file: UploadFile):
-    """
-    Load an uploaded SQLite .db file into a dict of DataFrames.
-    """
-    contents = await file.read()
-    db_dict = {}
-
-    # Use in-memory SQLite database
-    conn = sqlite3.connect(":memory:")
-    with conn:
-        conn.executescript(contents.decode(errors="ignore"))  # For .sql, optional
-    try:
-        # Standard approach for .db file
-        conn = sqlite3.connect(BytesIO(contents))
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = cursor.fetchall()
-
-        for table_name_tuple in tables:
-            table_name = table_name_tuple[0]
-            df = pd.read_sql_query(f"SELECT * FROM '{table_name}'", conn)
-            db_dict[table_name] = df
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read DB file: {e}")
-    finally:
-        conn.close()
-
-    return db_dict
-
-
 @router.post("/upload")
-async def upload_databases(files: List[UploadFile] = File(...)):
-    """
-    Upload one or more SQLite .db files.
-    Returns schema, profile, and AI insights (cross-table & trends).
-    """
+async def upload_databases(files: List[UploadFile]):
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
-    results = {}
     db_data_dict = {}
 
-    # Step 1: Load all databases
-    for file in files:
-        if not file.filename.endswith(".db"):
-            raise HTTPException(status_code=400, detail=f"Invalid file type: {file.filename}")
+    # Load all uploaded DB files concurrently
+    tasks = [load_sqlite_db(f) for f in files]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        db_data = await load_sqlite_db(file)
-        db_data_dict[file.filename] = db_data
+    for file, result in zip(files, results):
+        if isinstance(result, Exception):
+            raise HTTPException(status_code=500, detail=f"Failed to read {file.filename}: {result}")
+        db_data_dict[file.filename] = result
 
-    # Step 2: Schema and profiling per file
-    for filename, db_data in db_data_dict.items():
-        schema = analyze_schema(db_data)       # Existing schema analysis
-        profile = profile_tables(db_data)      # Existing profiling
+    # -------------------------------
+    # Generate table profiling
+    # -------------------------------
+    profile_dict = {fname: profile_tables(tables) for fname, tables in db_data_dict.items()}
 
-        results[filename] = {
-            "schema": schema,
-            "profile": profile
+    # -------------------------------
+    # Generate AI insights
+    # -------------------------------
+    insights = analyze_insights(db_data_dict, predict_future=True)
+
+    # -------------------------------
+    # Prepare response
+    # -------------------------------
+    response = {}
+    for fname in db_data_dict.keys():
+        response[fname] = {
+            "schema": {table: list(df.columns) for table, df in db_data_dict[fname].items()},
+            "profile": profile_dict[fname],
+            "ai_insights": insights.get(fname, {})
         }
 
-    # Step 3: AI-powered insights (cross-table, trends, correlations)
-    ai_insights = generate_insights(db_data_dict)
-    results["ai_insights"] = ai_insights
+    # Include cross-file relationships
+    response["ai_insights"] = {"cross_file_relationships": insights.get("cross_file_relationships", [])}
 
-    return results
+    return JSONResponse(content=response)
