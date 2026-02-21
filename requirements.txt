@@ -6,3 +6,4 @@ scikit-learn
 python-multipart
 networkx
 python-dotenv
+streamlit
