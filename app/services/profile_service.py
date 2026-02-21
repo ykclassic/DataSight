@@ -2,13 +2,11 @@
 import sqlite3
 import pandas as pd
 import tempfile
+from typing import Dict
 
-# -------------------------------
-# Load SQLite database
-# -------------------------------
 async def load_sqlite_db(uploaded_file):
     """
-    Reads an uploaded SQLite file and returns a dict of {table_name: DataFrame}
+    Load uploaded SQLite DB file into a dictionary of DataFrames
     """
     contents = await uploaded_file.read()
 
@@ -17,28 +15,30 @@ async def load_sqlite_db(uploaded_file):
         tmp_path = tmp.name
 
     conn = sqlite3.connect(tmp_path)
+    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", conn)
+    db_data: Dict[str, pd.DataFrame] = {}
 
-    tables = pd.read_sql(
-        "SELECT name FROM sqlite_master WHERE type='table';", conn
-    )
-
-    db_data = {}
     for table in tables["name"]:
-        df = pd.read_sql(f"SELECT * FROM {table}", conn)
-        db_data[table] = df
+        try:
+            df = pd.read_sql(f"SELECT * FROM {table}", conn)
+            db_data[table] = df
+        except Exception as e:
+            db_data[table] = pd.DataFrame({"error": [str(e)]})
 
     conn.close()
     return db_data
 
-# -------------------------------
-# Profile tables
-# -------------------------------
 def profile_tables(db_data):
     """
-    Takes a dict of {table_name: DataFrame} and returns profiling info
+    Generate table profiling safely; returns dictionary
     """
     profiles = {}
     for table_name, df in db_data.items():
-        # Use pandas describe for numeric + object types
-        profiles[table_name] = df.describe(include="all").to_dict()
+        try:
+            if df.empty:
+                profiles[table_name] = {"info": "Empty table"}
+            else:
+                profiles[table_name] = df.describe(include="all").to_dict()
+        except Exception as e:
+            profiles[table_name] = {"error": str(e)}
     return profiles
