@@ -3,6 +3,18 @@ import pandas as pd
 import numpy as np
 
 
+def clean_for_json(obj):
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(v) for v in obj]
+    elif isinstance(obj, float):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return obj
+    return obj
+
+
 def analyze_insights(db_data_dict):
     insights = {}
 
@@ -15,20 +27,18 @@ def analyze_insights(db_data_dict):
             try:
                 numeric_df = df.select_dtypes(include=np.number)
 
-                # Correlations
                 if not numeric_df.empty and numeric_df.shape[1] > 1:
                     corr = numeric_df.corr().abs()
+
                     high_corr = [
                         (c1, c2, float(corr.loc[c1, c2]))
                         for c1 in corr.columns
                         for c2 in corr.columns
                         if c1 != c2 and corr.loc[c1, c2] > 0.8
                     ]
-                    file_insights[table_name][
-                        "high_correlations"
-                    ] = high_corr
 
-                # Predictive trend slopes
+                    file_insights[table_name]["high_correlations"] = high_corr
+
                 trends = []
                 for col in numeric_df.columns:
                     y = df[col].dropna().values
@@ -36,6 +46,7 @@ def analyze_insights(db_data_dict):
                         x = np.arange(len(y))
                         slope = float(np.polyfit(x, y, 1)[0])
                         trends.append({"column": col, "slope": slope})
+
                 if trends:
                     file_insights[table_name]["trends"] = trends
 
@@ -44,7 +55,6 @@ def analyze_insights(db_data_dict):
 
         insights[filename] = file_insights
 
-    # Cross-file shared columns
     cross_file = []
     all_tables = [
         (f, t, df)
@@ -69,4 +79,5 @@ def analyze_insights(db_data_dict):
                 )
 
     insights["cross_file_relationships"] = cross_file
-    return insights
+
+    return clean_for_json(insights)
