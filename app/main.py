@@ -1,15 +1,11 @@
 # app/main.py
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import RedirectResponse
 from app.api.upload import router as upload_router
 
-import subprocess
-import threading
+app = FastAPI(title="DataSight")
 
-app = FastAPI(title="DataSight Unified Service")
-
-# Enable CORS (safe default)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,30 +14,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
 app.include_router(upload_router, prefix="/api")
 
 
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/dashboard")
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>DataSight Dashboard</title>
+    </head>
+    <body>
+        <h2>Upload SQLite Databases</h2>
+        <form id="uploadForm">
+            <input type="file" id="files" multiple />
+            <button type="submit">Analyze</button>
+        </form>
+        <pre id="output"></pre>
 
+        <script>
+            document.getElementById('uploadForm').onsubmit = async function(e) {
+                e.preventDefault();
+                const files = document.getElementById('files').files;
+                const formData = new FormData();
 
-# Start Streamlit in background
-def run_streamlit():
-    subprocess.run(
-        [
-            "streamlit",
-            "run",
-            "app/dashboard.py",
-            "--server.port=8501",
-            "--server.address=0.0.0.0",
-        ]
-    )
+                for (let i = 0; i < files.length; i++) {
+                    formData.append("files", files[i]);
+                }
 
+                const response = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData
+                });
 
-@app.on_event("startup")
-def startup_event():
-    thread = threading.Thread(target=run_streamlit)
-    thread.daemon = True
-    thread.start()
+                const text = await response.text();
+                document.getElementById("output").textContent = text;
+            };
+        </script>
+    </body>
+    </html>
+    """
