@@ -10,6 +10,7 @@ from app.engines.insight_engine import analyze_insights
 
 router = APIRouter()
 
+
 @router.post("/upload")
 async def upload_databases(files: List[UploadFile]):
     if not files:
@@ -17,9 +18,6 @@ async def upload_databases(files: List[UploadFile]):
 
     db_data_dict = {}
 
-    # -------------------------------
-    # Load all uploaded DB files safely
-    # -------------------------------
     tasks = [load_sqlite_db(f) for f in files]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -27,13 +25,11 @@ async def upload_databases(files: List[UploadFile]):
         if isinstance(result, Exception):
             return JSONResponse(
                 status_code=500,
-                content={"error": f"Failed to read {file.filename}: {str(result)}"}
+                content={"error": f"Failed to read {file.filename}: {str(result)}"},
             )
         db_data_dict[file.filename] = result
 
-    # -------------------------------
-    # Generate table profiling safely
-    # -------------------------------
+    # Profiling
     profile_dict = {}
     for fname, tables in db_data_dict.items():
         try:
@@ -41,28 +37,31 @@ async def upload_databases(files: List[UploadFile]):
         except Exception as e:
             profile_dict[fname] = {"error": str(e)}
 
-    # -------------------------------
-    # Generate AI insights safely
-    # -------------------------------
+    # AI Insights
     try:
         insights = analyze_insights(db_data_dict)
-    except Exception as e:
+    except Exception:
         return JSONResponse(
             status_code=500,
-            content={"error": f"AI insight generation failed: {str(e)}", "trace": traceback.format_exc()}
+            content={
+                "error": "AI insight generation failed",
+                "trace": traceback.format_exc(),
+            },
         )
 
-    # -------------------------------
-    # Prepare response
-    # -------------------------------
     response = {}
     for fname in db_data_dict.keys():
         response[fname] = {
-            "schema": {table: list(df.columns) for table, df in db_data_dict[fname].items()},
+            "schema": {
+                table: list(df.columns)
+                for table, df in db_data_dict[fname].items()
+            },
             "profile": profile_dict.get(fname, {}),
-            "ai_insights": insights.get(fname, {})
+            "ai_insights": insights.get(fname, {}),
         }
 
-    response["ai_insights"] = {"cross_file_relationships": insights.get("cross_file_relationships", [])}
+    response["cross_file_relationships"] = insights.get(
+        "cross_file_relationships", []
+    )
 
     return JSONResponse(content=response)
