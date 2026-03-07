@@ -1,4 +1,4 @@
-from sklearn.ensemble import IsolationForest  # Lowercase 'from'
+ from sklearn.ensemble import IsolationForest  # Lowercase 'from'
 import pandas as pd
 
 def detect_anomalies(df):
