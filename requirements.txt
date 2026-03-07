@@ -14,3 +14,4 @@ numpy
 sqlalchemy
 gunicorn
 openpyxl
+dash-bootstrap-components
