@@ -16,42 +16,50 @@ def register_callbacks(app):
         Output("auto-chart", "figure"),
         Output("insight-list", "children"),
         Output("recommendation-list", "children"),
+        Output("anomaly-table", "children"),
         Input("upload-data", "contents"),
         Input("upload-data", "filename")
     )
     def process_file(contents, filename):
-        # Return empty values for all 5 outputs if no file is uploaded
+        # 1. Prevent update if no file is uploaded
         if contents is None:
-            return "", "", {}, [], []
+            return "", "", {}, [], [], ""
 
-        # 1. Load and Analyze
+        # 2. Parse the file
         data = parse_uploaded_file(contents, filename)
-        schema = analyze_schema(data)
-        
-        # Get the first dataframe
         first_table = list(data.keys())[0]
         df = data[first_table]
 
-        # 2. Build UI Components
-        preview = dash_table.DataTable(
-            data=df.head(10).to_dict("records"),
-            columns=[{"name": i, "id": i} for i in df.columns],
-            style_table={'overflowX': 'auto'}
-        )
-
-        schema_table = dash_table.DataTable(
-            data=schema.to_dict("records"),
-            columns=[{"name": i, "id": i} for i in schema.columns]
-        )
-
-        # 3. Run Engines
+        # 3. Generate Analysis
+        schema = analyze_schema(data)
         chart = build_chart(df)
         insights = generate_insights(df)
         recs = generate_recommendations(df)
+        anomalies = detect_anomalies(df)
 
-        # Format insights/recs as list items for the html.Ul components
-        insight_elements = [html.Li(ins) for ins in insights]
-        rec_elements = [html.Li(rec) for rec in recs]
+        # 4. Format UI Components
+        preview_dt = dash_table.DataTable(
+            data=df.head(10).to_dict("records"),
+            columns=[{"name": i, "id": i} for i in df.columns],
+            style_table={'overflowX': 'auto'},
+            className="table"
+        )
 
-        # Return matches the order of the 5 Outputs above
-        return schema_table, preview, chart, insight_elements, rec_elements
+        schema_dt = dash_table.DataTable(
+            data=schema.to_dict("records"),
+            columns=[{"name": i, "id": i} for i in schema.columns],
+            className="table"
+        )
+        
+        anomaly_dt = dash_table.DataTable(
+            data=anomalies.to_dict("records") if not anomalies.empty else [],
+            columns=[{"name": i, "id": i} for i in anomalies.columns] if not anomalies.empty else [],
+            className="table"
+        )
+
+        # Convert strings to Bootstrap list items
+        insight_items = [html.Li(i, className="list-group-item") for i in insights]
+        rec_items = [html.Li(r, className="list-group-item") for r in recs]
+
+        # 5. Return everything in the exact order of the Outputs above
+        return schema_dt, preview_dt, chart, insight_items, rec_items, anomaly_dt
