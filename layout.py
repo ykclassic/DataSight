@@ -15,5 +15,14 @@ layout = html.Div([
     html.Div(id="table-preview"),
 
     dcc.Graph(id="auto-chart")
+    
+html.H2("Correlation Analysis"),
+dcc.Graph(id="correlation-heatmap"),
 
+html.H2("Relationships"),
+dcc.Graph(id="relationship-graph"),
+
+html.H2("Data Quality"),
+html.Div(id="data-profile")
+    
 ])
