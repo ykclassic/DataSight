@@ -1,20 +1,15 @@
 import plotly.express as px
 
-def build_chart(df):
+def correlation_heatmap(corr):
 
-    numeric_cols = df.select_dtypes(include=["int64","float64"]).columns
+    if corr is None:
+        return None
 
-    if len(numeric_cols) > 0:
-        col = numeric_cols[0]
-        fig = px.histogram(df, x=col)
-        return fig
+    fig = px.imshow(
+        corr,
+        text_auto=True,
+        aspect="auto",
+        title="Correlation Heatmap"
+    )
 
-    categorical_cols = df.select_dtypes(include=["object"]).columns
-
-    if len(categorical_cols) > 0:
-        col = categorical_cols[0]
-        fig = px.bar(df[col].value_counts().reset_index(),
-                     x="index", y=col)
-        return fig
-
-    return None
+    return fig
