@@ -1,24 +1,47 @@
-import pandas as pd
+import networkx as nx
+import plotly.graph_objects as go
 
-def detect_relationships(dataframes):
+def relationship_graph(rel_df):
 
-    relationships = []
+    G = nx.Graph()
 
-    tables = list(dataframes.keys())
+    for _, row in rel_df.iterrows():
+        G.add_edge(row["table_1"], row["table_2"], label=row["column"])
 
-    for i in range(len(tables)):
-        for j in range(i+1, len(tables)):
+    pos = nx.spring_layout(G)
 
-            df1 = dataframes[tables[i]]
-            df2 = dataframes[tables[j]]
+    edge_x = []
+    edge_y = []
 
-            common_cols = set(df1.columns).intersection(df2.columns)
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
 
-            for col in common_cols:
-                relationships.append({
-                    "table_1": tables[i],
-                    "table_2": tables[j],
-                    "column": col
-                })
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
 
-    return pd.DataFrame(relationships)
+    edge_trace = go.Scatter(
+        x=edge_x,
+        y=edge_y,
+        mode='lines'
+    )
+
+    node_x = []
+    node_y = []
+
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+
+    node_trace = go.Scatter(
+        x=node_x,
+        y=node_y,
+        mode='markers+text',
+        text=list(G.nodes()),
+        textposition="bottom center"
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+
+    return fig
