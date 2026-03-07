@@ -1,18 +1,19 @@
 import dash
+print("DEBUG: Dash imported")
+
 from layout import layout
+print("DEBUG: Layout imported")
+
 from callbacks import register_callbacks
+print("DEBUG: Callbacks imported")
 
-# Initialize Dash
 app = dash.Dash(__name__)
-
-# Expose Flask server for Gunicorn
 server = app.server
+print("DEBUG: Server variable created")
 
-# Layout
 app.layout = layout
-
-# Register callbacks
 register_callbacks(app)
+print("DEBUG: App initialization complete")
 
 if __name__ == "__main__":
     app.run(debug=True)
