@@ -7,3 +7,10 @@ python-multipart
 networkx
 python-dotenv
 plotly
+dash
+pandas
+plotly
+numpy
+sqlalchemy
+gunicorn
+openpyxl
