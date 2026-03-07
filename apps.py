@@ -1,19 +1,18 @@
 import dash
-print("DEBUG: Dash imported")
-
+import dash_bootstrap_components as dbc
 from layout import layout
-print("DEBUG: Layout imported")
-
 from callbacks import register_callbacks
-print("DEBUG: Callbacks imported")
 
-app = dash.Dash(__name__)
+# Initialize Dash with a modern Bootstrap theme
+app = dash.Dash(
+    __name__, 
+    external_stylesheets=[dbc.themes.FLATLY],
+    meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}]
+)
+
 server = app.server
-print("DEBUG: Server variable created")
-
 app.layout = layout
 register_callbacks(app)
-print("DEBUG: App initialization complete")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
