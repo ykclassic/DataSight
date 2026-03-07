@@ -24,5 +24,17 @@ dcc.Graph(id="relationship-graph"),
 
 html.H2("Data Quality"),
 html.Div(id="data-profile")
+
+html.H2("Dataset Health Score"),
+html.Div(id="health-score"),
+
+html.H2("Insights"),
+html.Ul(id="insight-list"),
+
+html.H2("Recommendations"),
+html.Ul(id="recommendation-list"),
+
+html.H2("Detected Anomalies"),
+html.Div(id="anomaly-table")
     
 ])
